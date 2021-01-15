@@ -76,7 +76,7 @@
                     <br>
                     <div class="row">
                         <label for="email" class="col-sm-4">
-                            Correo Electrónico <span class="text-danger" v-if="email.length<=4">(*)</span>
+                            Correo Electrónico <span class="text-danger" v-if="!/^[-\w.%+]{1,64}@(?:[A-Z0-9-]{1,63}\.){1,125}[A-Z]{2,63}$/i.test(email)">(*)</span>
                         </label>
                         <input id="email" type="mail" v-model="email" class="form-control col-sm-7">
                     </div>
@@ -87,15 +87,24 @@
                     </div>
                     <br>
                     <div class="row">
-                        <label for="status" class="col-sm-4">Tipo de Contrato</label>
+                        <label for="status" class="col-sm-4">Estatus</label>
                         <select v-model="status" class="form-control col-sm-7">
                             <option value="1">Activo</option>
                             <option value="0">Inactivo</option>
                         </select>
                     </div>
+
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <br>
+                            <div v-for="error in errorsArray" :key="error" class="alert alert-warning" role="alert">
+                                {{error}}
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-primary" @click="addEmploye()">Guardar</button>
+                    <button type="button" class="btn btn-sm btn-primary" @click="validateForm()">Guardar</button>
                     <button type="button" class="btn btn-sm btn-danger" data-dismiss="modal">Cerrar</button>
                 </div>
                 </div>
@@ -118,7 +127,15 @@
                 contract_type:'',
                 status:1,
                 modalTitle:'',
-                sName:''
+                sName:'',
+                errorsArray:[],
+                alertSuccsess:function(title){
+                    Swal.fire({
+                        type:'successs',
+                        title:title,
+                        timer:500,
+                    })
+                }
             }
         },
         methods:{
@@ -129,6 +146,8 @@
             },
             addEmploye(){
                 
+                if(this.validateForm()) return false;
+
                 axios.post('/employes/storage',{
                     'code':this.code,
                     'name':this.name,
@@ -140,6 +159,8 @@
                 }).then(
                     response => {
                         console.log(response.data);
+
+                        this.alertSuccsess('Guardado correctamente');
 
                         this.code='';
                         this.name='';
@@ -203,7 +224,62 @@
                         }
                     }
                 );
-            }
+            },
+            async validateForm(){
+                
+                let emailRegEx = /^[-\w.%+]{1,64}@(?:[A-Z0-9-]{1,63}\.){1,125}[A-Z]{2,63}$/i;
+                this.errorsArray = [];
+                
+                if(this.code.length <= 0) this.errorsArray.push('ingrese un código valido');
+                if(this.name.length <= 3) this.errorsArray.push('ingrese un nombre valido');
+                if(this.first_name.length <= 3) this.errorsArray.push('ingrese un apellido paterno valido');
+                if(!emailRegEx.test(this.email)) this.errorsArray.push('Ingrese un correo valido');
+                if(this.contract_type.length <= 0) this.errorsArray.push('ingrese un tipo de contrto valido');
+                
+                let registeredCode = await this.getEmployeCode();
+
+                if(registeredCode) this.errorsArray.push('El código ya fue registrado');
+
+                if(this.errorsArray.length == 0 )
+                    return false;
+                else
+                    return true;
+                
+
+               /*
+               let exist = false;
+
+                axios.get('/employes/get/code?code='+this.code).then(
+                    response => {exist =  response.data; console.log(response.data);}
+                ).then(() => {
+
+                    let emailRegEx = /^[-\w.%+]{1,64}@(?:[A-Z0-9-]{1,63}\.){1,125}[A-Z]{2,63}$/i;
+                    this.errorsArray = [];
+                    
+                    if(exist) this.errorsArray.push('El código ya fue registrado');
+                    if(this.code.length <= 0) this.errorsArray.push('ingrese un código valido');
+                    if(this.name.length <= 3) this.errorsArray.push('ingrese un nombre valido');
+                    if(this.first_name.length <= 3) this.errorsArray.push('ingrese un apellido paterno valido');
+                    if(!emailRegEx.test(this.email)) this.errorsArray.push('Ingrese un correo valido');
+                    if(this.contract_type.length <= 0) this.errorsArray.push('ingrese un tipo de contrto valido');
+
+                    if(this.errorsArray.length == 0 ) addEmploye();
+
+                }).catch(error => console.log(error));
+                */
+            },
+            //getEmployeCode(){
+            getEmployeCode:async()=>{
+
+                let me = this;
+
+                let exist = false;
+                axios.get('/employes/get/code?code='+me.code).then(
+                    response => {exist =  response.data; console.log(response.data);}
+                ).catch(error => console.log(error));
+
+                return exist;
+            },
         },
         mounted() {
             this.getEmployes();
